@@ -21,7 +21,7 @@
 2. **提取挂载质量 ($m_{\text{suspended}}$)：**
 * 点击菜单栏 **Tools $\rightarrow$ Component Analysis**（组件分析）。
 * 找到回收系统中被冲击缆绳挂载的独立分段（例如：整流罩 + 头部箭体 + 载荷舱）。
-* 记下该分段的总质量，即为悬挂质量 $m_{\text{suspended}}$（单位：${\text{kg}}$）。
+* 记下该分段的总质量，即为悬挂质量 $m_{\text{suspended}}$（单位：kg）。
 
 
 
