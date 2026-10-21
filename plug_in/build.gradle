@@ -1,0 +1,30 @@
+plugins {
+    id 'java'
+}
+
+group = 'sck_calc_plug_in'
+version = '1.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compileOnly files('lib/OpenRocket-24.12.jar')
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+    options.encoding = 'UTF-8'
+}
+
+jar {
+    archiveBaseName = 'shock-calc-plugin'
+}
+
+// 一键构建并复制到 OpenRocket 的 Plugins 目录（Windows）
+tasks.register('installPlugin', Copy) {
+    dependsOn jar
+    from jar.archiveFile
+    into file(System.getenv('APPDATA') + '/OpenRocket/Plugins')
+}

@@ -1,0 +1,5 @@
+* text=auto
+gradlew text eol=lf
+*.bat text eol=crlf
+
+# 普通文件让 Git 自动处理，gradlew 永远保持 LF，.bat 文件永远保持 CRLF。建好后重新执行一次
