@@ -17,20 +17,20 @@ public class ResultsDialog extends JDialog {
 
     public ResultsDialog(double v, double rho, double mass,
                          double opening, double snatch, double steady) {
-        super((java.awt.Frame) null, "冲击载荷计算结果", false);
+        super((java.awt.Frame) null, "Shock Load Calculation Result", false);
 
         StringBuilder text = new StringBuilder();
         JPanel grid = new JPanel(new GridLayout(0, 2, 12, 6));
         grid.setBorder(BorderFactory.createEmptyBorder(12, 16, 8, 16));
 
-        addRow(grid, text, "展开时速度", String.format("%.2f m/s", v));
-        addRow(grid, text, "展开时空气密度", String.format("%.4f kg/m³", rho));
-        addRow(grid, text, "展开时总质量", String.format("%.3f kg", mass));
-        addRow(grid, text, "开伞冲击载荷", fmtForce(opening));
-        addRow(grid, text, "分离冲击载荷", fmtForce(snatch));
-        addRow(grid, text, "隔板持续载荷", fmtForce(steady));
+        addRow(grid, text, "Velocity at Deployment", String.format("%.2f m/s", v));
+        addRow(grid, text, "Air Density at Deployment", String.format("%.4f kg/m³", rho));
+        addRow(grid, text, "Total Mass at Deployment", String.format("%.3f kg", mass));
+        addRow(grid, text, "Opening Shock Load", fmtForce(opening));
+        addRow(grid, text, "Separation Shock Load", fmtForce(snatch));
+        addRow(grid, text, "Bulkhead Sustained Load", fmtForce(steady));
 
-        JButton copy = new JButton("复制结果");
+        JButton copy = new JButton("Copy Result");
         copy.addActionListener(e -> Toolkit.getDefaultToolkit().getSystemClipboard()
                 .setContents(new StringSelection(text.toString()), null));
 

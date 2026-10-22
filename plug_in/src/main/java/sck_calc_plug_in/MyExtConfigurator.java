@@ -21,11 +21,11 @@ public class MyExtConfigurator extends AbstractSwingSimulationExtensionConfigura
 
     @Override
     protected JComponent getConfigurationComponent(MyExt ext, Simulation sim, JPanel panel) {
-        addRow(panel, "开伞力系数 Cx：", ext, "OpeningForceFactor");
-        addRow(panel, "安全系数：", ext, "SafetyFactor");
-        addRow(panel, "减震绳刚度 k (N/m)：", ext, "CordStiffness");
-        addRow(panel, "上段质量 (kg)：", ext, "UpperMass");
-        addRow(panel, "下段质量 (kg)：", ext, "LowerMass");
+        addRow(panel, "Opening Force Factor Cx：", ext, "OpeningForceFactor");
+        addRow(panel, "Safety Factor：", ext, "SafetyFactor");
+        addRow(panel, "Cord Stiffness k (N/m)：", ext, "CordStiffness");
+        addRow(panel, "Upper Mass (kg)：", ext, "UpperMass");
+        addRow(panel, "Lower Mass (kg)：", ext, "LowerMass");
         return panel;
     }
 

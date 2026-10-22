@@ -22,12 +22,12 @@ public class MyExt extends AbstractSimulationExtension {
 
     @Override
     public String getName() {
-        return "冲击载荷计算器";
+        return "Shock Load Calculator";
     }
 
     @Override
     public String getDescription() {
-        return "计算开伞冲击、分离冲击和隔板持续载荷，仿真结束后弹出结果窗口。";
+        return "Calculate opening shock, separation shock, and bulkhead sustained load; pop up result window after simulation.";
     }
 
     // ---- 用户参数（随 .ork 文件保存）----
@@ -70,7 +70,7 @@ public class MyExt extends AbstractSimulationExtension {
             mass = data.getLast(FlightDataType.TYPE_MASS);
             double p = data.getLast(FlightDataType.TYPE_AIR_PRESSURE);
             double t = data.getLast(FlightDataType.TYPE_AIR_TEMPERATURE);
-            rho = p / (287.05 * t);           // 理想气体：rho = P / (R * T)
+            rho = p / (287.05 * t);           // ideal gas：rho = P / (R * T)
             cd = dev.getCD();
             area = dev.getArea();
             captured = true;
@@ -78,11 +78,11 @@ public class MyExt extends AbstractSimulationExtension {
 
         @Override
         public void endSimulation(SimulationStatus status, SimulationException exception) {
-            if (!captured) return;   // 没有展开过降落伞，就不弹窗
+            if (!captured) return;   // do not pop up window if the parachute did not open
 
             double opening = LoadCalculator.openingShock(rho, v, cd, area, getOpeningForceFactor());
             double snatch = LoadCalculator.snatchLoad(v, getCordStiffness(), getUpperMass(), getLowerMass());
-            double steady = LoadCalculator.steadyLoad(mass, getSafetyFactor());
+            double steady = LoadCalculator.sustainedLoad(mass, getSafetyFactor());
 
             final double fv = v, frho = rho, fm = mass;
             SwingUtilities.invokeLater(() ->

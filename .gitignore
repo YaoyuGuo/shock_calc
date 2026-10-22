@@ -13,7 +13,6 @@ out/
 # ---- Gradle ----
 .gradle/
 build/
-# 例外必须写在 *.jar 之后才有效
 !**/gradle/wrapper/gradle-wrapper.jar
 
 # ---- OpenRocket jar (large; users download it themselves) ----
