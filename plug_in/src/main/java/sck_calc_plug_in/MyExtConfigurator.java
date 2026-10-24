@@ -24,14 +24,14 @@ public class MyExtConfigurator extends AbstractSwingSimulationExtensionConfigura
 
     @Override
     protected JComponent getConfigurationComponent(MyExt ext, Simulation sim, JPanel panel) {
-        addRow(panel, "开伞力系数 Cx：", ext, "OpeningForceFactor");
-        addRow(panel, "安全系数：", ext, "SafetyFactor");
-        addRow(panel, "减震绳刚度 k (N/m)：", ext, "CordStiffness");
+        addRow(panel, "Cx：", ext, "OpeningForceFactor");
+        addRow(panel, "Safety Factor：", ext, "SafetyFactor");
+        addRow(panel, "Cord Stiffness k (N/m)：", ext, "CordStiffness");
 
         // 可选：手动指定分离位置
-        panel.add(new JLabel("分离位置 (cm，距头锥尖，逗号分隔，留空=自动)："));
+        panel.add(new JLabel("Separation location (cm，to nose cone，sep. with comma，blank->auto)："));
         JTextField tf = new JTextField(ext.getBoundariesCm(), 18);
-        tf.setToolTipText("例如 25, 48.5。留空则以每根箭体管的起点作为分离位置。");
+        tf.setToolTipText("e.g. 25, 48.5.default: use start of each cone.");
         tf.getDocument().addDocumentListener(new DocumentListener() {
             @Override public void insertUpdate(DocumentEvent e) { ext.setBoundariesCm(tf.getText()); }
             @Override public void removeUpdate(DocumentEvent e) { ext.setBoundariesCm(tf.getText()); }

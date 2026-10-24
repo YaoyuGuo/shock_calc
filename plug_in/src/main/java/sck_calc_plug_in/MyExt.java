@@ -27,12 +27,12 @@ public class MyExt extends AbstractSimulationExtension {
 
     @Override
     public String getName() {
-        return "冲击载荷计算器";
+        return "Shock Load Calculator";
     }
 
     @Override
     public String getDescription() {
-        return "自动读取各分离段质量，计算每个降落伞的开伞冲击、分离冲击和持续载荷。";
+        return "Reads the section masses from the rocket model and computes the opening shock, separation load and sustained load of every parachute";
     }
 
     // ---- 用户参数（随 .ork 文件保存）----
@@ -122,7 +122,7 @@ public class MyExt extends AbstractSimulationExtension {
             }
 
             double opening = LoadCalculator.openingShock(rho, v, cd, area, getOpeningForceFactor());
-            double steady = LoadCalculator.steadyLoad(mass, getSafetyFactor());
+            double steady = LoadCalculator.sustainedLoad(mass, getSafetyFactor());
 
             results.add(new EventResult(chute.getName(), status.getSimulationTime(),
                     status.getRocketPosition().z, v, rho, mass, cd, area,

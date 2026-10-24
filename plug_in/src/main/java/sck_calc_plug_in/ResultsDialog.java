@@ -23,11 +23,11 @@ public class ResultsDialog extends JDialog {
     private static final double N_TO_LBF = 0.224809;
 
     public ResultsDialog(RocketSections sections, double[] sectionMasses, List<EventResult> events) {
-        super((java.awt.Frame) null, "冲击载荷计算结果", false);
+        super((java.awt.Frame) null, "Shock Load Calc Result", false);
 
         // ---- 分离段表 ----
         int ns = sections.sectionCount();
-        String[] secCols = {"#", "构件", "范围 (cm，距头锥尖)", "质量 (kg)"};
+        String[] secCols = {"#", "components", "range (cm，to nose cone)", "mass (kg)"};
         String[][] secRows = new String[ns + 1][];
         double sum = 0;
         for (int i = 0; i < ns; i++) {
@@ -36,18 +36,18 @@ public class ResultsDialog extends JDialog {
                     String.valueOf(i + 1), sections.name(i), sections.rangeLabel(i),
                     String.format("%.3f", sectionMasses[i])};
         }
-        secRows[ns] = new String[] {"", "合计", "", String.format("%.3f", sum)};
+        secRows[ns] = new String[] {"", "total", "", String.format("%.3f", sum)};
 
         double residual = sections.residual(events.get(0).mass());
-        String note = String.format("未归入任何组件的质量（发动机等）：%.3f kg，已计入最后一段。", residual);
+        String note = String.format("Mass not assigned to any component (motor, etc.): %.3f kg, added to the last section.", residual);
         if (residual < -0.005) {
-            note += " 该值为负，可能是多级火箭或质量覆盖设置，请核对。";
+            note += " The value is negative: check for a multi-stage rocket or mass overrides.";
         }
 
         // ---- 事件表 ----
-        String[] evCols = {"#", "回收装置", "时间 (s)", "高度 (m)", "速度 (m/s)",
-                "分离位置 (cm)", "上方质量 (kg)", "下方质量 (kg)",
-                "开伞冲击 N / lbf", "分离冲击 N / lbf", "持续载荷 N / lbf"};
+        String[] evCols = {"#", "Device", "Time (s)", "Height (m)", "Speed (m/s)",
+                "Joint (cm)", "upper mass (kg)", "lower mass (kg)",
+                "opening shock N / lbf", "snatch load N / lbf", "sustained load N / lbf"};
         String[][] evRows = new String[events.size()][];
         for (int i = 0; i < events.size(); i++) {
             EventResult e = events.get(i);
@@ -64,17 +64,17 @@ public class ResultsDialog extends JDialog {
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         content.setBorder(BorderFactory.createEmptyBorder(12, 16, 8, 16));
 
-        content.add(left(new JLabel("分离段（按轴向位置自动划分）")));
+        content.add(left(new JLabel("Sections (split along the rocket axis)")));
         content.add(Box.createVerticalStrut(4));
         content.add(tablePane(secCols, secRows, 640));
         content.add(Box.createVerticalStrut(4));
         content.add(left(new JLabel(note)));
         content.add(Box.createVerticalStrut(12));
-        content.add(left(new JLabel("回收事件（按展开时间排序）")));
+        content.add(left(new JLabel("Recovery events, sorted by deployment time (limit loads, before the safety factor)")));
         content.add(Box.createVerticalStrut(4));
         content.add(tablePane(evCols, evRows, 1100));
 
-        JButton copy = new JButton("复制结果");
+        JButton copy = new JButton("Copy Result");
         String text = toText(secCols, secRows) + "\n" + toText(evCols, evRows);
         copy.addActionListener(ev -> Toolkit.getDefaultToolkit().getSystemClipboard()
                 .setContents(new StringSelection(text), null));
