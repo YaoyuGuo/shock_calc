@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'sck_calc_plug_in'
-version = '1.0'
+version = '2.0'
 
 repositories {
     mavenCentral()

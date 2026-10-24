@@ -1,24 +1,24 @@
 package sck_calc_plug_in;
 
 /**
- * Results for one recovery-device deployment.
- * Masses are in kg, forces in N, speeds in m/s, positions in m. NaN means "not available".
+ * Results for one recovery-device deployment. All loads are LIMIT loads (no safety factor applied).
+ * Units: kg, N, m/s, m, s, kg/m^3. NaN means "not available".
  */
 public record EventResult(
-        String device,     // name of the recovery device
-        double time,       // simulation time of deployment (s)
-        double altitude,   // altitude above launch site (m)
-        double speed,      // rocket speed at deployment (m/s)
-        double rho,        // air density (kg/m^3)
-        double mass,       // total rocket mass at deployment (kg)
-        double cd,         // parachute drag coefficient
-        double area,       // parachute area (m^2)
-        int joint,         // index of the associated joint, -1 if none
-        double jointX,     // joint position from the nose tip (m)
-        double upper,      // mass in front of the joint (kg)
-        double lower,      // mass behind the joint (kg)
-        double opening,    // opening shock (N)
-        double snatch,     // separation (shock cord) load (N)
-        double steady      // steady load (N)
+        String device,          // name of the recovery device
+        double time,            // simulation time of deployment (s)
+        double altitude,        // altitude above the launch site (m)
+        double speed,           // rocket speed at deployment (m/s)
+        double airDensity,      // air density at deployment (kg/m^3)
+        double mass,            // total rocket mass at deployment (kg)
+        double dragCoefficient, // parachute drag coefficient Cd
+        double area,            // parachute reference area (m^2)
+        int joint,              // index of the associated joint, -1 if there is none
+        double jointX,          // joint position measured from the nose tip (m)
+        double upperMass,       // mass of everything in front of the joint (kg)
+        double lowerMass,       // mass of everything behind the joint (kg)
+        double openingLimit,    // opening shock, limit load (N)
+        double snatchLimit,     // separation (shock cord) load, limit load (N)
+        double sustainedLimit   // sustained load, limit load (N)
 ) {
 }

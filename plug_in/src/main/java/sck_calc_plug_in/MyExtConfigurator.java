@@ -24,29 +24,42 @@ public class MyExtConfigurator extends AbstractSwingSimulationExtensionConfigura
 
     @Override
     protected JComponent getConfigurationComponent(MyExt ext, Simulation sim, JPanel panel) {
-        addRow(panel, "Cx：", ext, "OpeningForceFactor");
-        addRow(panel, "Safety Factor：", ext, "SafetyFactor");
-        addRow(panel, "Cord Stiffness k (N/m)：", ext, "CordStiffness");
+        // The property names must match the getters and setters in MyExt exactly
+        addRow(panel, "Opening-force factor Cx:", ext, "OpeningForceFactor");
+        addRow(panel, "Safety factor, minimum:", ext, "SafetyFactorMin");
+        addRow(panel, "Safety factor, maximum:", ext, "SafetyFactorMax");
+        addRow(panel, "Shock cord stiffness k (N/m):", ext, "CordStiffness");
 
-        // 可选：手动指定分离位置
-        panel.add(new JLabel("Separation location (cm，to nose cone，sep. with comma，blank->auto)："));
-        JTextField tf = new JTextField(ext.getBoundariesCm(), 18);
-        tf.setToolTipText("e.g. 25, 48.5.default: use start of each cone.");
-        tf.getDocument().addDocumentListener(new DocumentListener() {
-            @Override public void insertUpdate(DocumentEvent e) { ext.setBoundariesCm(tf.getText()); }
-            @Override public void removeUpdate(DocumentEvent e) { ext.setBoundariesCm(tf.getText()); }
-            @Override public void changedUpdate(DocumentEvent e) { ext.setBoundariesCm(tf.getText()); }
+        // Optional: manual joint positions
+        panel.add(new JLabel("Joint positions (cm from nose tip, comma separated; empty = automatic):"));
+        JTextField field = new JTextField(ext.getBoundariesCm(), 18);
+        field.setToolTipText("Example: 25, 48.5. Empty means every body tube starts a new section.");
+        field.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                ext.setBoundariesCm(field.getText());
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                ext.setBoundariesCm(field.getText());
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                ext.setBoundariesCm(field.getText());
+            }
         });
-        panel.add(tf, "w 140lp!, wrap");
+        panel.add(field, "w 140lp!, wrap");
 
         return panel;
     }
 
-    private void addRow(JPanel panel, String label, MyExt ext, String prop) {
+    private void addRow(JPanel panel, String label, MyExt ext, String property) {
         panel.add(new JLabel(label));
-        DoubleModel m = new DoubleModel(ext, prop, UnitGroup.UNITS_NONE, 0);
-        JSpinner spin = new JSpinner(m.getSpinnerModel());
-        spin.setEditor(new SpinnerEditor(spin));
-        panel.add(spin, "w 80lp!, wrap");
+        DoubleModel model = new DoubleModel(ext, property, UnitGroup.UNITS_NONE, 0);
+        JSpinner spinner = new JSpinner(model.getSpinnerModel());
+        spinner.setEditor(new SpinnerEditor(spinner));
+        panel.add(spinner, "w 80lp!, wrap");
     }
 }

@@ -6,6 +6,7 @@ import info.openrocket.core.simulation.extension.AbstractSimulationExtensionProv
 @Plugin
 public class MyExtProvider extends AbstractSimulationExtensionProvider {
     public MyExtProvider() {
-        super(MyExt.class, "Shock Load", "Shock Load Calculator");
+        // First string: top-level menu. Second string: menu item.
+        super(MyExt.class, "Shock Loads", "Shock Load Calculator");
     }
 }
