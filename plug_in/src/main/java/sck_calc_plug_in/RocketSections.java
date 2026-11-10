@@ -19,6 +19,7 @@ import info.openrocket.core.util.Coordinate;
  *  - manual: positions in cm from the nose tip, entered by the user (replaces the automatic joints).
  *
  * N joints give N + 1 sections. A component belongs to the section that contains its axial center.
+ * Mass overrides set in the model are respected.
  */
 public final class RocketSections {
 
@@ -26,10 +27,13 @@ public final class RocketSections {
     private final double[] masses;   // component mass per section (kg), length = bounds.length + 1
     private final String[] names;    // body components found in each section
 
-    private RocketSections(double[] bounds, double[] masses, String[] names) {
+    private final List<double[]> tubes;   // body tubes: {start x, end x, inner radius} in metres
+
+    private RocketSections(double[] bounds, double[] masses, String[] names, List<double[]> tubes) {
         this.bounds = bounds;
         this.masses = masses;
         this.names = names;
+        this.tubes = tubes;
     }
 
     public static RocketSections analyze(RocketComponent root, String overrideCm) {
@@ -69,18 +73,31 @@ public final class RocketSections {
         }
 
         for (RocketComponent c : all) {
-            double m = c.getComponentMass();
+            double m = effectiveMass(c);
             boolean body = c instanceof BodyComponent;
             if (m <= 0 && !body) {
                 continue;
             }
-            for (Coordinate loc : c.toAbsolute(new Coordinate(0, 0, 0))) {
+            // getMass() is the mass of all instances together (e.g. the whole fin set),
+            // so it is shared equally between the instance locations.
+            Coordinate[] locations = c.toAbsolute(new Coordinate(0, 0, 0));
+            for (Coordinate loc : locations) {
                 int idx = index(bounds, loc.x + c.getLength() / 2.0);
                 if (m > 0) {
-                    masses[idx] += m;
+                    masses[idx] += m / locations.length;
                 }
                 if (body && !parts.get(idx).contains(c.getName())) {
                     parts.get(idx).add(c.getName());
+                }
+            }
+        }
+
+        // 3. Inner radius of every body tube, used as the default bulkhead radius
+        List<double[]> tubes = new ArrayList<>();
+        for (RocketComponent c : all) {
+            if (c instanceof BodyTube tube) {
+                for (Coordinate loc : c.toAbsolute(new Coordinate(0, 0, 0))) {
+                    tubes.add(new double[] {loc.x, loc.x + tube.getLength(), tube.getInnerRadius()});
                 }
             }
         }
@@ -89,7 +106,7 @@ public final class RocketSections {
         for (int i = 0; i < n; i++) {
             names[i] = parts.get(i).isEmpty() ? "-" : String.join(" + ", parts.get(i));
         }
-        return new RocketSections(bounds, masses, names);
+        return new RocketSections(bounds, masses, names, tubes);
     }
 
     // ---- queries ----
@@ -138,6 +155,27 @@ public final class RocketSections {
         return best;
     }
 
+    /**
+     * Inner radius of the body tube at the given axial position (metres), which is the radius of a
+     * bulkhead fitted there. If no tube covers the position, the tube that starts closest to it is
+     * used. Returns NaN if the rocket has no body tube.
+     */
+    public double tubeInnerRadius(double x) {
+        double best = Double.NaN;
+        double bestDist = Double.MAX_VALUE;
+        for (double[] t : tubes) {
+            if (x >= t[0] - 1e-6 && x < t[1]) {
+                return t[2];
+            }
+            double d = Math.abs(t[0] - x);
+            if (d < bestDist) {
+                bestDist = d;
+                best = t[2];
+            }
+        }
+        return best;
+    }
+
     /** Mass in the model that is not covered by any component (motor, casing, ...). */
     public double residual(double totalMass) {
         double sum = 0;
@@ -179,6 +217,20 @@ public final class RocketSections {
         for (RocketComponent child : c.getChildren()) {
             collect(child, out);
         }
+    }
+
+    /**
+     * Mass of one component as OpenRocket uses it: the override value if the mass is overridden,
+     * otherwise the computed component mass. A component whose ancestor overrides the mass of its
+     * subcomponents contributes nothing, because the ancestor's override already includes it.
+     */
+    private static double effectiveMass(RocketComponent c) {
+        for (RocketComponent p = c.getParent(); p != null; p = p.getParent()) {
+            if (p.isMassOverridden() && p.isSubcomponentsOverriddenMass()) {
+                return 0;
+            }
+        }
+        return c.getMass();
     }
 
     private static int index(double[] bounds, double x) {

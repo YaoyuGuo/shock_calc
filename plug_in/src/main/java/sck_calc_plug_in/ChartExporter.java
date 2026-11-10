@@ -18,7 +18,8 @@ import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
 
 /**
- * Draws design load versus safety factor and saves it as a PNG.
+ * Draws the result charts and saves them as PNG files: design load versus safety factor,
+ * and the opening force history of the canopy inflation.
  *
  * This is optional. It relies on JFreeChart, which OpenRocket bundles for its own plots.
  * If these imports do not resolve, delete this class and the PNG button in ResultsDialog;
@@ -54,6 +55,34 @@ public final class ChartExporter {
                 PlotOrientation.VERTICAL,
                 true, false, false);
 
+        save(chart, file);
+    }
+
+    /** Draws the opening force history of every deployment event and saves it as a PNG. */
+    public static void writeInflationPng(File file, List<EventResult> events) throws IOException {
+        XYSeriesCollection dataset = new XYSeriesCollection();
+        for (int i = 0; i < events.size(); i++) {
+            EventResult e = events.get(i);
+            XYSeries s = new XYSeries("Event " + (i + 1) + ": " + e.device());
+            double[] t = e.pflanz().curveTime();
+            double[] f = e.pflanz().curveForce();
+            for (int k = 0; k < t.length; k++) {
+                s.add(t[k], f[k]);
+            }
+            dataset.addSeries(s);
+        }
+
+        JFreeChart chart = ChartFactory.createXYLineChart(
+                "Opening force during canopy inflation (Pflanz, limit load)",
+                "Time after line stretch (s)",
+                "Opening force (N)",
+                dataset,
+                PlotOrientation.VERTICAL,
+                true, false, false);
+        save(chart, file);
+    }
+
+    private static void save(JFreeChart chart, File file) throws IOException {
         chart.setBackgroundPaint(Color.WHITE);
         XYPlot plot = chart.getXYPlot();
         plot.setBackgroundPaint(Color.WHITE);

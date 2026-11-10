@@ -12,7 +12,7 @@ import java.util.Locale;
  * Sweeps the safety factor over a range and builds the result table.
  *
  * Independent variable: safety factor (from min to max in steps of {@link #STEP}).
- * Held constant: opening-force factor Cx, cord stiffness k, and everything read from the simulation.
+ * Held constant: the opening-force settings, the snatch load settings, and everything read from the simulation.
  * Dependent variables: the design loads (safety factor x limit load) of every deployment event.
  */
 public final class SafetyFactorSweep {
@@ -25,14 +25,18 @@ public final class SafetyFactorSweep {
 
     /** Values that stay constant during the sweep; written to the CSV for traceability. */
     public record Settings(double minFactor, double maxFactor,
-                           double openingForceFactor, double cordStiffness) {
+                           double openingForceFactor, double cordStiffness,
+                           String openingMethod, double fillConstant, double inflationExponent,
+                           double separationSpeed) {
     }
 
     /** One table row: one safety factor for one deployment event. */
     public record Row(double safetyFactor, int event, String device,
                       double openingLimit, double openingDesign,
                       double snatchLimit, double snatchDesign,
-                      double sustainedLimit, double sustainedDesign) {
+                      double sustainedLimit, double sustainedDesign,
+                      double openingInfiniteLimit,
+                      double governingLimit, double governingDesign) {
     }
 
     private SafetyFactorSweep() {
@@ -69,7 +73,9 @@ public final class SafetyFactorSweep {
                 rows.add(new Row(sf, i + 1, e.device(),
                         e.openingLimit(), LoadCalculator.designLoad(e.openingLimit(), sf),
                         e.snatchLimit(), LoadCalculator.designLoad(e.snatchLimit(), sf),
-                        e.sustainedLimit(), LoadCalculator.designLoad(e.sustainedLimit(), sf)));
+                        e.sustainedLimit(), LoadCalculator.designLoad(e.sustainedLimit(), sf),
+                        e.openingInfinite(),
+                        e.governingLimit(), LoadCalculator.designLoad(e.governingLimit(), sf)));
             }
         }
         return rows;
@@ -81,7 +87,9 @@ public final class SafetyFactorSweep {
           .append("opening_limit_N,opening_design_N,")
           .append("snatch_limit_N,snatch_design_N,")
           .append("sustained_limit_N,sustained_design_N,")
-          .append("opening_force_factor,cord_stiffness_N_per_m\n");
+          .append("opening_force_factor,cord_stiffness_N_per_m,")
+          .append("opening_infinite_mass_limit_N,governing_limit_N,governing_design_N,")
+          .append("opening_method,fill_constant,inflation_exponent,separation_speed_m_per_s\n");
 
         for (Row r : rows) {
             sb.append(fmt(r.safetyFactor(), 2)).append(',')
@@ -94,7 +102,14 @@ public final class SafetyFactorSweep {
               .append(fmt(r.sustainedLimit(), 3)).append(',')
               .append(fmt(r.sustainedDesign(), 3)).append(',')
               .append(fmt(s.openingForceFactor(), 4)).append(',')
-              .append(fmt(s.cordStiffness(), 2)).append('\n');
+              .append(fmt(s.cordStiffness(), 2)).append(',')
+              .append(fmt(r.openingInfiniteLimit(), 3)).append(',')
+              .append(fmt(r.governingLimit(), 3)).append(',')
+              .append(fmt(r.governingDesign(), 3)).append(',')
+              .append(quote(s.openingMethod())).append(',')
+              .append(fmt(s.fillConstant(), 2)).append(',')
+              .append(fmt(s.inflationExponent(), 2)).append(',')
+              .append(fmt(s.separationSpeed(), 2)).append('\n');
         }
         return sb.toString();
     }

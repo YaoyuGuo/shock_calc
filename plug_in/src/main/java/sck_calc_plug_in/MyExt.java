@@ -1,5 +1,6 @@
 package sck_calc_plug_in;
 
+import java.awt.GraphicsEnvironment;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -7,6 +8,7 @@ import java.util.Set;
 
 import javax.swing.SwingUtilities;
 
+import info.openrocket.core.rocketcomponent.Parachute;
 import info.openrocket.core.rocketcomponent.RecoveryDevice;
 import info.openrocket.core.rocketcomponent.RocketComponent;
 import info.openrocket.core.simulation.FlightDataBranch;
@@ -23,6 +25,16 @@ public class MyExt extends AbstractSimulationExtension {
     /** Specific gas constant of dry air, J/(kg*K). */
     private static final double AIR_GAS_CONSTANT = 287.05;
 
+    /** Opening load method: finite mass (Pflanz). */
+    public static final int METHOD_PFLANZ = 0;
+    /** Opening load method: infinite mass, F = q * CdS * Cx (the method of version 2.0). */
+    public static final int METHOD_INFINITE_MASS = 1;
+
+    public static final String[] METHOD_NAMES = {
+            "Pflanz, finite mass (recommended)",
+            "Infinite mass, q x CdS x Cx (upper bound)"
+    };
+
     @Override
     public void initialize(SimulationConditions conditions) throws SimulationException {
         conditions.getSimulationListenerList().add(new MyListener());
@@ -35,11 +47,35 @@ public class MyExt extends AbstractSimulationExtension {
 
     @Override
     public String getDescription() {
-        return "Reads the section masses from the rocket model and computes the opening shock, "
-                + "separation load and sustained load of every parachute, swept over a safety factor range.";
+        return "Computes the parachute opening force (Pflanz method), the shock cord snatch load and the "
+                + "sustained load of every parachute from the simulated deployment conditions, "
+                + "and sizes the attachment bolts and the bulkhead for the governing load.";
+    }
+
+    /**
+     * Called on the simulation thread when a run has finished and at least one parachute deployed.
+     * Shows the results window; does nothing when no display is available.
+     */
+    protected void publish(Report report) {
+        if (GraphicsEnvironment.isHeadless()) {
+            return;
+        }
+        SwingUtilities.invokeLater(() -> new ResultsDialog(report).setVisible(true));
     }
 
     // ---- User parameters (stored in the .ork file) ----
+    // DoubleModel needs a double getter and setter for every numeric property.
+
+    // -- Opening force --
+
+    public int getOpeningMethod() {
+        return config.getInt("openingMethod", METHOD_PFLANZ);
+    }
+
+    public void setOpeningMethod(int v) {
+        config.put("openingMethod", v);
+        fireChangeEvent();
+    }
 
     public double getOpeningForceFactor() {
         return config.getDouble("openingForceFactor", 1.5);
@@ -49,6 +85,49 @@ public class MyExt extends AbstractSimulationExtension {
         config.put("openingForceFactor", v);
         fireChangeEvent();
     }
+
+    /** Canopy fill constant n: the canopy fills after travelling n nominal diameters. */
+    public double getFillConstant() {
+        return config.getDouble("fillConstant", 8.0);
+    }
+
+    public void setFillConstant(double v) {
+        config.put("fillConstant", v);
+        fireChangeEvent();
+    }
+
+    /** Exponent j of the drag-area growth (t / tf)^j. */
+    public double getInflationExponent() {
+        return config.getDouble("inflationExponent", 2.0);
+    }
+
+    public void setInflationExponent(double v) {
+        config.put("inflationExponent", v);
+        fireChangeEvent();
+    }
+
+    // -- Snatch load --
+
+    /** Relative speed of the two bodies when the shock cord goes taut (m/s). */
+    public double getSeparationSpeed() {
+        return config.getDouble("separationSpeed", 10.0);
+    }
+
+    public void setSeparationSpeed(double v) {
+        config.put("separationSpeed", v);
+        fireChangeEvent();
+    }
+
+    public double getCordStiffness() {
+        return config.getDouble("cordStiffness", 10000.0);
+    }
+
+    public void setCordStiffness(double v) {
+        config.put("cordStiffness", v);
+        fireChangeEvent();
+    }
+
+    // -- Safety factor sweep --
 
     public double getSafetyFactorMin() {
         return config.getDouble("safetyFactorMin", 1.0);
@@ -68,14 +147,106 @@ public class MyExt extends AbstractSimulationExtension {
         fireChangeEvent();
     }
 
-    public double getCordStiffness() {
-        return config.getDouble("cordStiffness", 10000.0);
+    // -- Bolt and bulkhead sizing --
+
+    public double getSizingSafetyFactor() {
+        return config.getDouble("sizingSafetyFactor", 2.0);
     }
 
-    public void setCordStiffness(double v) {
-        config.put("cordStiffness", v);
+    public void setSizingSafetyFactor(double v) {
+        config.put("sizingSafetyFactor", v);
         fireChangeEvent();
     }
+
+    /** Threaded legs sharing the load: 2 for a U-bolt, 1 for an eye-bolt. */
+    public double getBoltLegs() {
+        return config.getDouble("boltLegs", 2.0);
+    }
+
+    public void setBoltLegs(double v) {
+        config.put("boltLegs", (double) Math.max(1, Math.round(v)));
+        fireChangeEvent();
+    }
+
+    public int getBoltMaterial() {
+        return config.getInt("boltMaterial", 0);
+    }
+
+    public void setBoltMaterial(int v) {
+        config.put("boltMaterial", v);
+        fireChangeEvent();
+    }
+
+    /** Allowable tensile stress for the custom bolt material (MPa). */
+    public double getBoltCustomStrength() {
+        return config.getDouble("boltCustomStrength", 450.0);
+    }
+
+    public void setBoltCustomStrength(double v) {
+        config.put("boltCustomStrength", v);
+        fireChangeEvent();
+    }
+
+    public int getPlateMaterial() {
+        return config.getInt("plateMaterial", 0);
+    }
+
+    public void setPlateMaterial(int v) {
+        config.put("plateMaterial", v);
+        fireChangeEvent();
+    }
+
+    /** Allowable bending stress for the custom bulkhead material (MPa). */
+    public double getPlateCustomBending() {
+        return config.getDouble("plateCustomBending", 276.0);
+    }
+
+    public void setPlateCustomBending(double v) {
+        config.put("plateCustomBending", v);
+        fireChangeEvent();
+    }
+
+    /** Allowable shear stress for the custom bulkhead material (MPa). */
+    public double getPlateCustomShear() {
+        return config.getDouble("plateCustomShear", 159.0);
+    }
+
+    public void setPlateCustomShear(double v) {
+        config.put("plateCustomShear", v);
+        fireChangeEvent();
+    }
+
+    /** Radius of the circle on which the bolt legs load the bulkhead (mm). */
+    public double getLoadRadiusMm() {
+        return config.getDouble("loadRadiusMm", 15.0);
+    }
+
+    public void setLoadRadiusMm(double v) {
+        config.put("loadRadiusMm", v);
+        fireChangeEvent();
+    }
+
+    /** Outer diameter of the washer or nut under each leg (mm). */
+    public double getWasherDiameterMm() {
+        return config.getDouble("washerDiameterMm", 12.0);
+    }
+
+    public void setWasherDiameterMm(double v) {
+        config.put("washerDiameterMm", v);
+        fireChangeEvent();
+    }
+
+    /** Bulkhead radius in mm. Zero means automatic: the inner radius of the body tube at the joint. */
+    public double getBulkheadRadiusMm() {
+        return config.getDouble("bulkheadRadiusMm", 0.0);
+    }
+
+    public void setBulkheadRadiusMm(double v) {
+        config.put("bulkheadRadiusMm", v);
+        fireChangeEvent();
+    }
+
+    // -- Sections --
 
     /** Manual joint positions in cm from the nose tip, comma separated. Empty means automatic. */
     public String getBoundariesCm() {
@@ -85,6 +256,14 @@ public class MyExt extends AbstractSimulationExtension {
     public void setBoundariesCm(String s) {
         config.put("boundariesCm", s);
         fireChangeEvent();
+    }
+
+    private Sizing.Settings sizingSettings() {
+        return new Sizing.Settings(
+                getSizingSafetyFactor(), (int) Math.round(getBoltLegs()),
+                getBoltMaterial(), getBoltCustomStrength(),
+                getPlateMaterial(), getPlateCustomBending(), getPlateCustomShear(),
+                getLoadRadiusMm() / 1000.0, getWasherDiameterMm() / 1000.0, getBulkheadRadiusMm() / 1000.0);
     }
 
     // ---- Simulation listener ----
@@ -126,13 +305,22 @@ public class MyExt extends AbstractSimulationExtension {
         private void capture(SimulationStatus status, RecoveryDevice device) {
             FlightDataBranch data = status.getFlightDataBranch();
 
-            double speed = status.getRocketVelocity().length();
+            // Flight conditions at deployment
+            Coordinate velocity = status.getRocketVelocity();
+            double speed = velocity.length();
+            double horizontalSpeed = Math.hypot(velocity.x, velocity.y);
+            double verticalSpeed = velocity.z;
             double mass = data.getLast(FlightDataType.TYPE_MASS);
             double pressure = data.getLast(FlightDataType.TYPE_AIR_PRESSURE);
             double temperature = data.getLast(FlightDataType.TYPE_AIR_TEMPERATURE);
             double density = pressure / (AIR_GAS_CONSTANT * temperature);   // ideal gas: rho = P / (R * T)
+
+            // Parachute
             double cd = device.getCD();
             double area = device.getArea();
+            double diameter = device instanceof Parachute p
+                    ? p.getDiameter()
+                    : Math.sqrt(4 * area / Math.PI);
 
             // Section masses are read from the rocket model
             RocketComponent root = status.getConfiguration().getRocket();
@@ -157,15 +345,33 @@ public class MyExt extends AbstractSimulationExtension {
                 upper = RocketSections.upperMass(joint, sectionMasses);
                 lower = RocketSections.lowerMass(joint, sectionMasses);
                 jointX = sections.jointX(joint);
-                snatchLimit = LoadCalculator.snatchLoad(speed, getCordStiffness(), upper, lower);
+                snatchLimit = LoadCalculator.snatchLoad(getSeparationSpeed(), getCordStiffness(), upper, lower);
             }
 
-            double openingLimit = LoadCalculator.openingShock(density, speed, cd, area, getOpeningForceFactor());
+            // Opening force: finite mass (Pflanz) and infinite mass
+            double cx = getOpeningForceFactor();
+            PflanzModel.Result pflanz = PflanzModel.solve(mass, cd * area, density,
+                    horizontalSpeed, verticalSpeed, diameter,
+                    getFillConstant(), getInflationExponent(), cx);
+            double openingInfinite = LoadCalculator.openingShock(density, speed, cd, area, cx);
+            double openingLimit = getOpeningMethod() == METHOD_INFINITE_MASS
+                    ? openingInfinite
+                    : pflanz.peakForce();
+
             double sustainedLimit = LoadCalculator.sustainedLoad(mass);
+            double governing = LoadCalculator.governing(openingLimit, snatchLimit, sustainedLimit);
+
+            // Bolt and bulkhead sizing for the governing load
+            Sizing.Settings sizing = sizingSettings();
+            double bulkheadRadius = sizing.bulkheadRadius() > 0
+                    ? sizing.bulkheadRadius()
+                    : sections.tubeInnerRadius(Double.isNaN(jointX) ? x : jointX);
+            Sizing.Result sized = Sizing.size(governing, bulkheadRadius, sizing);
 
             results.add(new EventResult(chute.getName(), status.getSimulationTime(),
-                    status.getRocketPosition().z, speed, density, mass, cd, area,
-                    joint, jointX, upper, lower, openingLimit, snatchLimit, sustainedLimit));
+                    status.getRocketPosition().z, speed, verticalSpeed, density, mass, cd, area, diameter,
+                    joint, jointX, upper, lower,
+                    pflanz, openingInfinite, openingLimit, snatchLimit, sustainedLimit, governing, sized));
         }
 
         @Override
@@ -173,15 +379,13 @@ public class MyExt extends AbstractSimulationExtension {
             if (results.isEmpty()) {
                 return;   // no parachute deployed, so there is nothing to show
             }
-            final List<EventResult> events = new ArrayList<>(results);
-            final RocketSections secs = sections;
-            final double[] sectionMasses = firstSectionMasses;
-            final SafetyFactorSweep.Settings settings = new SafetyFactorSweep.Settings(
+            SafetyFactorSweep.Settings sweep = new SafetyFactorSweep.Settings(
                     getSafetyFactorMin(), getSafetyFactorMax(),
-                    getOpeningForceFactor(), getCordStiffness());
+                    getOpeningForceFactor(), getCordStiffness(),
+                    METHOD_NAMES[Math.max(0, Math.min(METHOD_NAMES.length - 1, getOpeningMethod()))],
+                    getFillConstant(), getInflationExponent(), getSeparationSpeed());
 
-            SwingUtilities.invokeLater(
-                    () -> new ResultsDialog(secs, sectionMasses, events, settings).setVisible(true));
+            publish(new Report(sections, firstSectionMasses, new ArrayList<>(results), sweep, sizingSettings()));
         }
     }
 }

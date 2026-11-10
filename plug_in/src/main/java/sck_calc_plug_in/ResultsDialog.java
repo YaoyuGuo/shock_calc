@@ -28,14 +28,18 @@ import javax.swing.table.DefaultTableModel;
 public class ResultsDialog extends JDialog {
 
     private static final double N_TO_LBF = 0.224809;
+    private static final int TABLE_WIDTH = 1180;
 
+    private final List<EventResult> events;
     private final List<SafetyFactorSweep.Row> rows;
     private final SafetyFactorSweep.Settings settings;
 
-    public ResultsDialog(RocketSections sections, double[] sectionMasses,
-                         List<EventResult> events, SafetyFactorSweep.Settings settings) {
+    public ResultsDialog(Report report) {
         super((java.awt.Frame) null, "Shock Load Results", false);
-        this.settings = settings;
+        RocketSections sections = report.sections();
+        double[] sectionMasses = report.sectionMasses();
+        this.events = report.events();
+        this.settings = report.sweep();
         this.rows = SafetyFactorSweep.build(events, settings.minFactor(), settings.maxFactor());
 
         // ---- Section table ----
@@ -56,13 +60,14 @@ public class ResultsDialog extends JDialog {
                 "Mass not assigned to any component (motor, etc.): %.3f kg, added to the last section.",
                 residual);
         if (residual < -0.005) {
-            note += " The value is negative: check for a multi-stage rocket or mass overrides.";
+            note += " The value is negative: check for a multi-stage rocket.";
         }
 
         // ---- Event table (limit loads) ----
         String[] eventColumns = {"#", "Device", "Time (s)", "Altitude (m)", "Speed (m/s)",
-                "Joint (cm)", "Upper mass (kg)", "Lower mass (kg)",
-                "Opening shock N / lbf", "Snatch load N / lbf", "Sustained load N / lbf"};
+                "Joint (cm)", "Upper (kg)", "Lower (kg)",
+                "Opening N / lbf", "Snatch N / lbf", "Sustained N / lbf",
+                "Governing N / lbf"};
         String[][] eventRows = new String[events.size()][];
         for (int i = 0; i < events.size(); i++) {
             EventResult e = events.get(i);
@@ -71,8 +76,55 @@ public class ResultsDialog extends JDialog {
                     num(e.time(), "%.2f"), num(e.altitude(), "%.1f"), num(e.speed(), "%.2f"),
                     e.joint() >= 0 ? num(e.jointX() * 100.0, "%.1f") : "n/a",
                     num(e.upperMass(), "%.3f"), num(e.lowerMass(), "%.3f"),
-                    force(e.openingLimit()), force(e.snatchLimit()), force(e.sustainedLimit())};
+                    force(e.openingLimit()), force(e.snatchLimit()), force(e.sustainedLimit()),
+                    force(e.governingLimit())};
         }
+
+        // ---- Inflation table (Pflanz) ----
+        String[] inflationColumns = {"#", "Device", "Density (kg/m3)", "CdS (m2)", "D0 (m)",
+                "Fill time (s)", "A", "X1 Pflanz", "X1 + gravity",
+                "Inf. mass N / lbf", "Finite mass N / lbf", "Peak (g)",
+                "Upper / lower (N)"};
+        String[][] inflationRows = new String[events.size()][];
+        for (int i = 0; i < events.size(); i++) {
+            EventResult e = events.get(i);
+            PflanzModel.Result p = e.pflanz();
+            inflationRows[i] = new String[] {
+                    String.valueOf(i + 1), e.device(),
+                    num(e.airDensity(), "%.3f"), num(e.dragCoefficient() * e.area(), "%.3f"),
+                    num(e.nominalDiameter(), "%.3f"),
+                    num(p.fillTime(), "%.3f"), num(p.ballisticParameter(), "%.3f"),
+                    num(p.x1Analytic(), "%.3f"), num(p.x1(), "%.3f"),
+                    force(e.openingInfinite()), force(p.peakForce()),
+                    num(e.peakDecelerationG(), "%.2f"),
+                    e.joint() >= 0
+                            ? num(e.openingUpperShare(), "%.0f") + " / " + num(e.openingLowerShare(), "%.0f")
+                            : "n/a"};
+        }
+
+        // ---- Sizing table ----
+        String[] sizingColumns = {"#", "Device", "Limit load (N)", "Design N / lbf",
+                "Area per leg (mm2)", "Metric", "UNC",
+                "Bulkhead R (mm)", "t bending (mm)", "t shear (mm)",
+                "t minimum (mm)"};
+        String[][] sizingRows = new String[events.size()][];
+        for (int i = 0; i < events.size(); i++) {
+            EventResult e = events.get(i);
+            Sizing.Result z = e.sizing();
+            sizingRows[i] = new String[] {
+                    String.valueOf(i + 1), e.device(),
+                    num(e.governingLimit(), "%.1f"), force(z.designLoad()),
+                    num(z.areaPerLeg(), "%.2f"), z.metric(), z.unc(),
+                    num(z.bulkheadRadius() * 1000, "%.1f"),
+                    num(z.thicknessBending() * 1000, "%.2f"), num(z.thicknessShear() * 1000, "%.2f"),
+                    num(z.thickness() * 1000, "%.2f")};
+        }
+
+        String openingInfo = String.format(Locale.ROOT,
+                "Opening shock method: %s. Cx = %.2f, fill constant n = %.1f, exponent j = %.1f. "
+                        + "Snatch load: separation speed %.1f m/s, cord stiffness %.0f N/m.",
+                settings.openingMethod(), settings.openingForceFactor(), settings.fillConstant(),
+                settings.inflationExponent(), settings.separationSpeed(), settings.cordStiffness());
 
         String sweepInfo = String.format(Locale.ROOT,
                 "Design load = safety factor x limit load. Sweep: %.2f to %.2f, step %.2f (%d rows per event).",
@@ -90,29 +142,54 @@ public class ResultsDialog extends JDialog {
         content.add(Box.createVerticalStrut(4));
         content.add(left(new JLabel(note)));
         content.add(Box.createVerticalStrut(12));
-        content.add(left(new JLabel("Recovery events, sorted by deployment time (limit loads, before the safety factor)")));
+
+        content.add(left(new JLabel(
+                "Recovery events, sorted by deployment time (limit loads, before the safety factor)")));
         content.add(Box.createVerticalStrut(4));
-        content.add(tablePane(eventColumns, eventRows, 1100));
+        content.add(tablePane(eventColumns, eventRows, TABLE_WIDTH));
         content.add(Box.createVerticalStrut(4));
+        content.add(left(new JLabel(openingInfo)));
+        content.add(Box.createVerticalStrut(12));
+
+        content.add(left(new JLabel("Canopy inflation (Pflanz method)")));
+        content.add(Box.createVerticalStrut(4));
+        content.add(tablePane(inflationColumns, inflationRows, TABLE_WIDTH));
+        content.add(Box.createVerticalStrut(12));
+
+        content.add(left(new JLabel("Bolt and bulkhead sizing for the governing load")));
+        content.add(Box.createVerticalStrut(4));
+        content.add(tablePane(sizingColumns, sizingRows, TABLE_WIDTH));
+        content.add(Box.createVerticalStrut(4));
+        content.add(left(new JLabel(Sizing.describe(report.sizing()))));
+        content.add(Box.createVerticalStrut(12));
         content.add(left(new JLabel(sweepInfo)));
 
         JButton exportCsv = new JButton("Export table (CSV)...");
         exportCsv.addActionListener(ev -> exportCsv());
         JButton exportPng = new JButton("Export chart (PNG)...");
         exportPng.addActionListener(ev -> exportPng());
+        JButton exportInflation = new JButton("Export inflation curves (PNG)...");
+        exportInflation.addActionListener(ev -> exportInflation());
         JButton copy = new JButton("Copy summary");
-        String summary = toText(sectionColumns, sectionRows) + "\n" + toText(eventColumns, eventRows);
+        String summary = toText(sectionColumns, sectionRows) + "\n" + toText(eventColumns, eventRows)
+                + "\n" + toText(inflationColumns, inflationRows) + "\n" + toText(sizingColumns, sizingRows);
         copy.addActionListener(ev -> Toolkit.getDefaultToolkit().getSystemClipboard()
                 .setContents(new StringSelection(summary), null));
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 6));
         buttons.add(exportCsv);
         buttons.add(exportPng);
+        buttons.add(exportInflation);
         buttons.add(copy);
 
-        getContentPane().add(content, BorderLayout.CENTER);
+        // The content scrolls if it does not fit on the screen
+        JScrollPane scroll = new JScrollPane(content);
+        scroll.setBorder(null);
+        getContentPane().add(scroll, BorderLayout.CENTER);
         getContentPane().add(buttons, BorderLayout.SOUTH);
         pack();
+        Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+        setSize(Math.min(getWidth() + 24, screen.width - 80), Math.min(getHeight() + 24, screen.height - 80));
         setLocationRelativeTo(null);
         setAlwaysOnTop(true);
     }
@@ -140,6 +217,20 @@ public class ResultsDialog extends JDialog {
         }
         try {
             ChartExporter.writePng(file, rows);
+            JOptionPane.showMessageDialog(this, "Saved " + file.getAbsolutePath());
+        } catch (IOException | RuntimeException ex) {
+            JOptionPane.showMessageDialog(this, "Could not save the chart: " + ex.getMessage(),
+                    "Export failed", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void exportInflation() {
+        File file = chooseFile("shock_load_inflation.png", ".png");
+        if (file == null) {
+            return;
+        }
+        try {
+            ChartExporter.writeInflationPng(file, events);
             JOptionPane.showMessageDialog(this, "Saved " + file.getAbsolutePath());
         } catch (IOException | RuntimeException ex) {
             JOptionPane.showMessageDialog(this, "Could not save the chart: " + ex.getMessage(),
@@ -182,7 +273,9 @@ public class ResultsDialog extends JDialog {
     }
 
     private static String num(double value, String format) {
-        return Double.isNaN(value) ? "n/a" : String.format(Locale.ROOT, format, value);
+        return Double.isNaN(value) || Double.isInfinite(value)
+                ? "n/a"
+                : String.format(Locale.ROOT, format, value);
     }
 
     private static String force(double newtons) {
