@@ -86,7 +86,6 @@ OpenRocket is referenced with `compileOnly`, so it is not bundled into the plugi
 ```
 shock_calc/
 ├── README.md
-├── specs.md                          original design notes
 ├── docs/
 │   ├── USAGE.md                      user guide (English and Chinese)
 │   └── THEORY.md                     theory and verification (English and Chinese)
@@ -229,7 +228,6 @@ OpenRocket 使用 `compileOnly` 引用，不会被打包进插件 jar。PNG 导�
 ```
 shock_calc/
 ├── README.md
-├── specs.md                          最初的设计笔记
 ├── docs/
 │   ├── USAGE.md                      使用说明（中英文）
 │   └── THEORY.md                     理论与验证（中英文）
